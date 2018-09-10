@@ -28,7 +28,7 @@ SOFTWARE.
 
 'use strict';
 
-const gql = require('graphql-sync');
+const gql = require('graphql').graphqlSync;
 const graphql = gql.graphql;
 
 const lodash_1 = require('lodash');
