@@ -43,100 +43,100 @@ const graphql_1 = gql;
 const graphql_3 = gql;
 
 function makeExecutableSchema(
-  typeDefs,
-  resolvers = {},
-  connectors,
-  logger,
-  allowUndefinedInResolve = true,
-  resolverValidationOptions = {}) {
-  const jsSchema = _generateSchema(typeDefs, resolvers, logger, allowUndefinedInResolve, resolverValidationOptions);
-  return jsSchema;
+    typeDefs,
+    resolvers = {},
+    connectors,
+    logger,
+    allowUndefinedInResolve = true,
+    resolverValidationOptions = {}) {
+    const jsSchema = _generateSchema(typeDefs, resolvers, logger, allowUndefinedInResolve, resolverValidationOptions);
+    return jsSchema;
 }
 
 function _generateSchema(
-  typeDefinitions,
-  resolveFunctions,
-  logger,
-  // TODO: rename to allowUndefinedInResolve to be consistent
-  allowUndefinedInResolve,
-  resolverValidationOptions
+    typeDefinitions,
+    resolveFunctions,
+    logger,
+    // TODO: rename to allowUndefinedInResolve to be consistent
+    allowUndefinedInResolve,
+    resolverValidationOptions
 ) {
-  if (typeof resolverValidationOptions !== 'object') {
-    throw new Error('Expected `resolverValidationOptions` to be an object');
-  }
-  if (!typeDefinitions) {
-    throw new Error('Must provide typeDefs');
-  }
-  if (!resolveFunctions) {
-    throw new Error('Must provide resolvers');
-  }
+    if (typeof resolverValidationOptions !== 'object') {
+        throw new Error('Expected `resolverValidationOptions` to be an object');
+    }
+    if (!typeDefinitions) {
+        throw new Error('Must provide typeDefs');
+    }
+    if (!resolveFunctions) {
+        throw new Error('Must provide resolvers');
+    }
 
-  // TODO: check that typeDefinitions is either string or array of strings
+    // TODO: check that typeDefinitions is either string or array of strings
 
-  const [ast, schema] = buildSchemaFromTypeDefinitions(typeDefinitions);
-  /*print('------- AST ----------');
-  print(JSON.stringify(ast, false, 2));
-  print('------- AST ----------');*/
+    const [ast, schema] = buildSchemaFromTypeDefinitions(typeDefinitions);
+    /*print('------- AST ----------');
+    print(JSON.stringify(ast, false, 2));
+    print('------- AST ----------');*/
 
-  generateResolveFunctions(ast, resolveFunctions);
+    generateResolveFunctions(ast, resolveFunctions);
 
+    addResolveFunctionsToSchema(schema, resolveFunctions);
 
+    assertResolveFunctionsPresent(schema, resolverValidationOptions);
 
-  addResolveFunctionsToSchema(schema, resolveFunctions);
+    if (!allowUndefinedInResolve) {
+        addCatchUndefinedToSchema(schema);
+    }
 
-  assertResolveFunctionsPresent(schema, resolverValidationOptions);
+    if (logger) {
+        addErrorLoggingToSchema(schema, logger);
+    }
 
-  if (!allowUndefinedInResolve) {
-    addCatchUndefinedToSchema(schema);
-  }
+    /*print('---------- SCHEMA ----------');
+      print(JSON.parse(JSON.stringify(schema)));
+      print('---------- SCHEMA ----------');*/
 
-  if (logger) {
-    addErrorLoggingToSchema(schema, logger);
-  }
-
-/*print('---------- SCHEMA ----------');
-  print(JSON.parse(JSON.stringify(schema)));
-  print('---------- SCHEMA ----------');*/
-
-  return schema;
+    return schema;
 }
 
 function buildSchemaFromTypeDefinitions(typeDefinitions) {
-  // TODO: accept only array here, otherwise interfaces get confusing.
-  let myDefinitions = typeDefinitions;
-  let astDocument;
+    // TODO: accept only array here, otherwise interfaces get confusing.
+    let myDefinitions = typeDefinitions;
+    let astDocument;
 
-  if (isDocumentNode(typeDefinitions)) {
-    astDocument = typeDefinitions;
-  } else if (typeof myDefinitions !== 'string') {
-    if (!Array.isArray(myDefinitions)) {
-      const type = typeof myDefinitions;
-      throw new Error(`typeDefs must be a string, array or schema AST, got ${type}`);
+    if (isDocumentNode(typeDefinitions)) {
+        astDocument = typeDefinitions;
+    } else if (typeof myDefinitions !== 'string') {
+        if (!Array.isArray(myDefinitions)) {
+            const type = typeof myDefinitions;
+            throw new Error(`typeDefs must be a string, array or schema AST, got ${type}`);
+        }
+        myDefinitions = concatenateTypeDefs(myDefinitions);
     }
-    myDefinitions = concatenateTypeDefs(myDefinitions);
-  }
 
-  if (typeof myDefinitions === 'string') {
-    astDocument = parse(myDefinitions);
-  }
+    if (typeof myDefinitions === 'string') {
+        astDocument = parse(myDefinitions);
+    }
 
-  let schema = buildASTSchema(astDocument);
+    let schema = buildASTSchema(astDocument);
 
-  const extensionsAst = extractExtensionDefinitions(astDocument);
-  if (extensionsAst.definitions.length > 0) {
-    schema = extendSchema(schema, extensionsAst);
-  }
+    const extensionsAst = extractExtensionDefinitions(astDocument);
+    if (extensionsAst.definitions.length > 0) {
+        schema = extendSchema(schema, extensionsAst);
+    }
 
-  return [astDocument, schema];
+    return [astDocument, schema];
 }
 
 function isDocumentNode(typeDefinitions) {
-  return typeDefinitions.kind !== undefined;
+    return typeDefinitions.kind !== undefined;
 }
 
 function concatenateTypeDefs(typeDefinitionsAry, calledFunctionRefs) {
-    if (calledFunctionRefs === void 0) { calledFunctionRefs = []; }
-    var resolvedTypeDefinitions = [];
+    if (calledFunctionRefs === void 0) {
+        calledFunctionRefs = [];
+    }
+    let resolvedTypeDefinitions = [];
     typeDefinitionsAry.forEach(function (typeDef) {
         if (isDocumentNode(typeDef)) {
             typeDef = graphql_1.print(typeDef);
@@ -151,15 +151,19 @@ function concatenateTypeDefs(typeDefinitionsAry, calledFunctionRefs) {
             resolvedTypeDefinitions.push(typeDef.trim());
         }
         else {
-            var type = typeof typeDef;
+            const type = typeof typeDef;
             throw new SchemaError("typeDef array must contain only strings and functions, got " + type);
         }
     });
-    return lodash_1.uniq(resolvedTypeDefinitions.map(function (x) { return x.trim(); })).join('\n');
+    return lodash_1.uniq(resolvedTypeDefinitions.map(function (x) {
+        return x.trim();
+    })).join('\n');
 }
 
 function extractExtensionDefinitions(ast) {
-    var extensionDefs = ast.definitions.filter(function (def) { return def.kind === graphql_1.Kind.TYPE_EXTENSION_DEFINITION; });
+    const extensionDefs = ast.definitions.filter(function (def) {
+        return def.kind === graphql_1.Kind.TYPE_EXTENSION_DEFINITION;
+    });
     return Object.assign({}, ast, {
         definitions: extensionDefs,
     });
@@ -167,7 +171,7 @@ function extractExtensionDefinitions(ast) {
 
 function addResolveFunctionsToSchema(schema, resolveFunctions) {
     Object.keys(resolveFunctions).forEach(function (typeName) {
-        var type = schema.getType(typeName);
+        let type = schema.getType(typeName);
         if (!type && typeName !== '__schema') {
             throw new Error("\"" + typeName + "\" defined in resolvers, but not in schema");
         }
@@ -189,11 +193,11 @@ function addResolveFunctionsToSchema(schema, resolveFunctions) {
             if (!fields[fieldName]) {
                 throw new Error(typeName + "." + fieldName + " defined in resolvers, but not in schema");
             }
-            var field = fields[fieldName];
-            var fieldResolve = resolveFunctions[typeName][fieldName];
+            const field = fields[fieldName];
+            let fieldResolve = resolveFunctions[typeName][fieldName];
             if (typeof fieldResolve === 'function') {
                 // for convenience. Allows shorter syntax in resolver definition file
-                setFieldProperties(field, { resolve: fieldResolve });
+                setFieldProperties(field, {resolve: fieldResolve});
             }
             else {
                 if (typeof fieldResolve !== 'object') {
@@ -223,8 +227,12 @@ function getFieldsForType(type) {
 }
 
 function assertResolveFunctionsPresent(schema, resolverValidationOptions) {
-    if (resolverValidationOptions === void 0) { resolverValidationOptions = {}; }
-    var _a = resolverValidationOptions.requireResolversForArgs, requireResolversForArgs = _a === void 0 ? false : _a, _b = resolverValidationOptions.requireResolversForNonScalar, requireResolversForNonScalar = _b === void 0 ? false : _b, _c = resolverValidationOptions.requireResolversForAllFields, requireResolversForAllFields = _c === void 0 ? false : _c;
+    if (resolverValidationOptions === void 0) {
+        resolverValidationOptions = {};
+    }
+    const _a = resolverValidationOptions.requireResolversForArgs, requireResolversForArgs = _a === void 0 ? false : _a,
+        _b = resolverValidationOptions.requireResolversForNonScalar, requireResolversForNonScalar = _b === void 0 ? false : _b,
+        _c = resolverValidationOptions.requireResolversForAllFields, requireResolversForAllFields = _c === void 0 ? false : _c;
     if (requireResolversForAllFields && (requireResolversForArgs || requireResolversForNonScalar)) {
         throw new TypeError('requireResolversForAllFields takes precedence over the more specific assertions. ' +
             'Please configure either requireResolversForAllFields or requireResolversForArgs / ' +
@@ -247,14 +255,14 @@ function assertResolveFunctionsPresent(schema, resolverValidationOptions) {
 }
 
 function forEachField(schema, fn) {
-    var typeMap = schema.getTypeMap();
+    const typeMap = schema.getTypeMap();
     Object.keys(typeMap).forEach(function (typeName) {
-        var type = typeMap[typeName];
+        const type = typeMap[typeName];
         // TODO: maybe have an option to include these?
         if (!graphql_3.getNamedType(type).name.startsWith('__') && type instanceof graphql_3.GraphQLObjectType) {
-            var fields_1 = type.getFields();
+            const fields_1 = type.getFields();
             Object.keys(fields_1).forEach(function (fieldName) {
-                var field = fields_1[fieldName];
+                const field = fields_1[fieldName];
                 fn(field, typeName, fieldName);
             });
         }

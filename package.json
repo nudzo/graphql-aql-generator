@@ -1,6 +1,6 @@
 {
   "name": "graphql-aql-generator",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "query graphql with only a graphql idl schema",
   "main": "index.js",
   "scripts": {
